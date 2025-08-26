@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nedtellingsklokke – Zoom/Zoom Room</title>
+  <style>
+    :root{
+      --bg:#0b0f14;--fg:#e8f0ff;--muted:#94a3b8;--accent:#4f46e5;--ok:#10b981;--warn:#f59e0b;--danger:#ef4444;
+      --card:#111827;--btn:#1f2937;--btn-hover:#374151;--ring:#3b82f6;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Arial,sans-serif;display:flex;align-items:center;justify-content:center}
+    .wrap{width:min(1200px,96vw);padding:clamp(12px,2vw,24px)}
+    .grid{display:grid;gap:16px;grid-template-columns:1fr}
+    .display{
+      user-select:none;
+      text-align:center;border-radius:24px;padding:2vh 2vw;background:linear-gradient(180deg,#0f1623,#0b0f14);
+      box-shadow:0 10px 30px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.03);
+    }
+    #time{
+      letter-spacing:.04em; font-variant-numeric:tabular-nums lining-nums;
+      font-weight:800; line-height:1; margin:0; padding:1vh 0 0;
+      font-size:clamp(48px,18vw,220px);
+    }
+    #sub{color:var(--muted);font-size:clamp(12px,2.2vw,20px);margin-top:8px}
+    .controls{display:grid;gap:12px;grid-template-columns:1fr}
+    .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .card{background:var(--card);border-radius:18px;padding:12px;border:1px solid rgba(255,255,255,.06)}
+    label{font-size:14px;color:var(--muted)}
+    input[type="number"]{width:6.5ch;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:#0b1220;color:var(--fg);font-size:16px;padding:8px}
+    input[type="file"]{display:none}
+    .file-btn{appearance:none;border:1px solid rgba(255,255,255,.12);border-radius:8px;background:var(--btn);color:var(--fg);padding:6px 12px;font-size:14px;cursor:pointer;transition:.15s}
+    .file-btn:hover{background:var(--btn-hover)}
+    .btn{appearance:none;border:0;border-radius:14px;background:var(--btn);color:var(--fg);padding:10px 14px;font-size:16px;font-weight:600;cursor:pointer;transition:.15s;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+    .btn:hover{background:var(--btn-hover)}
+    .primary{background:var(--accent)}
+    .primary:hover{filter:brightness(1.05)}
+    .success{background:var(--ok)}
+    .warn{background:var(--warn);color:#111}
+    .danger{background:var(--danger)}
+    .chip{background:#0d1524;border:1px solid rgba(99,102,241,.5)}
+    .grow{flex:1}
+    .switch{display:inline-flex;align-items:center;gap:8px}
+    .switch input{transform:scale(1.2)}
+    .range{accent-color:var(--accent)}
+    .hint{color:var(--muted);font-size:12px}
+    .footer{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+    .kbd{font:600 12px ui-monospace,SFMono-Regular,Menlo,monospace;border:1px solid rgba(255,255,255,.15);border-bottom-width:3px;border-radius:8px;padding:2px 6px;color:#cbd5e1;background:#0b1220}
+    @media (min-width:900px){
+      .controls{grid-template-columns:1fr 1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap grid">
+    <div class="display card" id="display">
+      <h1 id="time">00:05:00</h1>
+      <div id="sub">Trykk <span class="kbd">Mellomrom</span> for start/pause · <span class="kbd">F</span> for fullskjerm</div>
+    </div>
+
+    <div class="controls">
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <div class="row">
+            <div>
+              <label for="min">Minutter</label><br>
+              <input id="min" type="number" min="0" max="599" value="5">
+            </div>
+            <div>
+              <label for="sec">Sekunder</label><br>
+              <input id="sec" type="number" min="0" max="59" value="0">
+            </div>
+          </div>
+          <div class="row">
+            <button class="btn chip" data-preset="1">1 min</button>
+            <button class="btn chip" data-preset="3">3</button>
+            <button class="btn chip" data-preset="5">5</button>
+            <button class="btn chip" data-preset="10">10</button>
+            <button class="btn chip" data-preset="15">15</button>
+          </div>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button id="startPause" class="btn primary">Start</button>
+          <button id="reset" class="btn">Nullstill</button>
+          <button id="plus30" class="btn success">+30s</button>
+          <button id="minus10" class="btn warn">−10s</button>
+          <button id="fullscreen" class="btn">Fullskjerm</button>
+          <div class="grow"></div>
+          <div class="switch"><input id="endBeep" type="checkbox" checked><label for="endBeep">Alarm ved slutt</label></div>
+          <div class="switch"><input id="tickSound" type="checkbox"><label for="tickSound">Tikk hvert sekund</label></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:flex-end">
+          <div>
+            <label for="bgFile">Bakgrunnslyd (valgfritt)</label><br>
+            <input id="bgFile" type="file" accept="audio/*">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+              <button id="fileBtn" class="file-btn">Velg fil</button>
+              <div id="fileStatus" class="hint" style="color: var(--ok);">Standard: calm-piano-music-351839.mp3</div>
+            </div>
+            <div class="hint">Velg en MP3/WAV. Spilles av i loop mens klokken går.</div>
+          </div>
+          <div>
+            <label for="bgVol">Volum bakgrunnslyd</label><br>
+            <input id="bgVol" class="range" type="range" min="0" max="1" step="0.01" value="0.4">
+          </div>
+          <div class="switch"><input id="bgToggle" type="checkbox" checked><label for="bgToggle">Spill bakgrunnslyd</label></div>
+        </div>
+        <audio id="bgAudio" loop></audio>
+        <div class="footer"><span class="hint">Tips: Del denne fanen i Zoom og huk av <em>Del systemlyd</em> for at alle skal høre lyden.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- State ---
+    let totalMs = 5 * 60 * 1000; // default 5 min
+    let remainingMs = totalMs;
+    let timerId = null;
+    let running = false;
+    let lastTick = null;
+    let beepQueue = null; // for end pattern
+    let hasWarned60 = false; // track if 1:00 warning has been played
+    let hasWarned30 = false; // track if 0:30 warning has been played
+    let hasWarned10 = false; // track if 0:10 warning has been played
+    let hasWarned03 = false; // track if 0:03 warning has been played
+    let hasWarned02 = false; // track if 0:02 warning has been played
+    let hasWarned01 = false; // track if 0:01 warning has been played
+    let hasWarned00 = false; // track if 0:00 warning has been played
+
+    // Web Audio
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioCtx();
+    // Prevent suspended on iOS until first gesture
+    const resumeAudio = () => { if (ctx.state !== 'running') ctx.resume(); }
+
+    const $ = (sel) => document.querySelector(sel);
+    const timeEl = $('#time');
+    const minEl = $('#min');
+    const secEl = $('#sec');
+    const startPauseBtn = $('#startPause');
+    const resetBtn = $('#reset');
+    const plus30Btn = $('#plus30');
+    const minus10Btn = $('#minus10');
+    const fullscreenBtn = $('#fullscreen');
+    const endBeepChk = $('#endBeep');
+    const tickChk = $('#tickSound');
+    const bgFile = $('#bgFile');
+    const bgAudio = $('#bgAudio');
+    const bgToggle = $('#bgToggle');
+    const bgVol = $('#bgVol');
+
+    function msToHMS(ms){
+      const total = Math.max(0, Math.floor(ms / 1000));
+      const h = Math.floor(total / 3600);
+      const m = Math.floor((total % 3600) / 60);
+      const s = total % 60;
+      const hh = h > 0 ? String(h).padStart(2,'0')+':' : '';
+      return `${hh}${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }
+
+    function render(){
+      timeEl.textContent = msToHMS(remainingMs);
+      
+      // Gradual color transition from white to red when below 1 minute
+      if (remainingMs <= 60_000 && running){
+        // Calculate progress from 60s to 0s (0.0 to 1.0)
+        const progress = Math.max(0, 1 - (remainingMs / 60_000));
+        // Interpolate from white (#e8f0ff) to red (#ef4444)
+        const r = Math.round(232 + (239 - 232) * progress);  // 232 -> 239
+        const g = Math.round(240 + (68 - 240) * progress);   // 240 -> 68
+        const b = Math.round(255 + (68 - 255) * progress);   // 255 -> 68
+        timeEl.style.color = `rgb(${r}, ${g}, ${b})`;
+      } else {
+        timeEl.style.color = 'var(--fg)';
+      }
+    }
+
+    function readInputs(){
+      const m = Math.max(0, parseInt(minEl.value || '0',10));
+      const s = Math.max(0, parseInt(secEl.value || '0',10));
+      totalMs = (m * 60 + s) * 1000;
+      remainingMs = totalMs;
+      render();
+    }
+
+    function setPreset(min){
+      minEl.value = String(min);
+      secEl.value = '0';
+      readInputs();
+    }
+
+    function tick(){
+      const now = performance.now();
+      if (!lastTick) lastTick = now;
+      const dt = now - lastTick;
+      lastTick = now;
+      
+      const prevMs = remainingMs;
+      remainingMs -= dt;
+
+      if (remainingMs <= 0){
+        remainingMs = 0; render(); stop(); if (endBeepChk.checked) endBeep(); return; }
+      
+      // Check for warnings by detecting when we cross thresholds
+      // 1:00 warning
+      if (prevMs > 61_000 && remainingMs <= 61_000 && !hasWarned60) {
+        hasWarned60 = true;
+        if (endBeepChk.checked) warningBeep();
+        flashRed();
+      }
+      // 0:30 warning
+      if (prevMs > 31_000 && remainingMs <= 31_000 && !hasWarned30) {
+        hasWarned30 = true;
+        if (endBeepChk.checked) warningBeep();
+        flashRed();
+      }
+      // 0:10 warning
+      if (prevMs > 11_000 && remainingMs <= 11_000 && !hasWarned10) {
+        hasWarned10 = true;
+        if (endBeepChk.checked) warningBeep();
+        flashRed();
+      }
+      // 0:03 warning
+      if (prevMs > 4_000 && remainingMs <= 4_000 && !hasWarned03) {
+        hasWarned03 = true;
+        if (endBeepChk.checked) warningBeep();
+        flashRed();
+      }
+      // 0:02 warning
+      if (prevMs > 3_000 && remainingMs <= 3_000 && !hasWarned02) {
+        hasWarned02 = true;
+        if (endBeepChk.checked) warningBeep();
+        flashRed();
+      }
+      // 0:01 warning
+      if (prevMs > 2_000 && remainingMs <= 2_000 && !hasWarned01) {
+        hasWarned01 = true;
+        if (endBeepChk.checked) warningBeep();
+        flashRed();
+      }
+      // 0:00 warning
+      if (prevMs > 1_000 && remainingMs <= 1_000 && !hasWarned00) {
+        hasWarned00 = true;
+        if (endBeepChk.checked) warningBeep();
+        flashRed();
+      }
+      
+      // play tick each second boundary when enabled
+      if (tickChk.checked){
+        const secLeft = Math.ceil(remainingMs/1000);
+        const justCrossed = Math.floor((remainingMs+dt)/1000) !== Math.floor(remainingMs/1000);
+        if (justCrossed) shortTick();
+      }
+      render();
+      timerId = requestAnimationFrame(tick);
+    }
+
+    function start(){
+      resumeAudio();
+      if (running) return;
+      if (remainingMs <= 0) readInputs();
+      running = true; startPauseBtn.textContent = 'Pause';
+      lastTick = null; timerId = requestAnimationFrame(tick);
+      handleBgAudio();
+    }
+
+    function stop(){
+      running = false; startPauseBtn.textContent = 'Start';
+      if (timerId) cancelAnimationFrame(timerId); timerId=null;
+      handleBgAudio();
+    }
+
+    function reset(){
+      stop(); 
+      hasWarned60 = false;
+      hasWarned30 = false;
+      hasWarned10 = false;
+      hasWarned03 = false;
+      hasWarned02 = false;
+      hasWarned01 = false;
+      hasWarned00 = false;
+      readInputs();
+    }
+
+    function addMs(ms){ remainingMs = Math.max(0, remainingMs + ms); render(); }
+
+    function enterFullscreen(){
+      const el = document.documentElement; // whole page
+      if (!document.fullscreenElement){ el.requestFullscreen?.(); }
+      else { document.exitFullscreen?.(); }
+    }
+
+    function shortTick(){
+      // a very short, soft tick
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.frequency.value = 880; // A5
+      g.gain.value = 0.02; // quiet
+      o.connect(g).connect(ctx.destination);
+      o.start();
+      o.stop(ctx.currentTime + 0.03);
+    }
+
+    function warningBeep(){
+      // Play a single warning beep
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = 1000; // 1kHz warning tone
+      g.gain.value = 0.0001;
+      o.connect(g).connect(ctx.destination);
+      
+      const t = ctx.currentTime;
+      o.start(t);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.2, t + 0.02);
+      g.gain.linearRampToValueAtTime(0.0001, t + 0.3);
+      o.stop(t + 0.32);
+    }
+
+    function flashRed(){
+      // Flash the time display red quickly
+      timeEl.animate([
+        {color: 'var(--danger)'},
+        {color: 'var(--fg)'},
+        {color: 'var(--danger)'},
+        {color: 'var(--fg)'},
+        {color: 'var(--danger)'},
+        {color: 'var(--fg)'}
+      ], {duration: 600});
+    }
+
+    function endBeep(){
+      // Play a quick attention pattern: beep-beep-beeeep
+      const pattern = [
+        {f: 880, d: 0.18, g: 0.25},
+        {gap: 0.1},
+        {f: 880, d: 0.18, g: 0.25},
+        {gap: 0.1},
+        {f: 660, d: 0.5, g: 0.3}
+      ];
+      let t = ctx.currentTime;
+      pattern.forEach(step=>{
+        if (step.gap){ t += step.gap; return; }
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type='sine'; o.frequency.value = step.f; g.gain.value = 0.0001;
+        o.connect(g).connect(ctx.destination);
+        o.start(t);
+        // fade in/out to avoid clicks
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(step.g, t + 0.02);
+        g.gain.linearRampToValueAtTime(0.0001, t + step.d);
+        o.stop(t + step.d + 0.01);
+        t += step.d;
+      });
+      // brief flash effect
+      const disp = document.getElementById('display');
+      disp.animate([{filter:'brightness(1)'},{filter:'brightness(1.8)'},{filter:'brightness(1)'}],{duration:600});
+    }
+
+    function handleBgAudio(){
+      bgAudio.volume = parseFloat(bgVol.value || '0.4');
+      if (bgToggle.checked && bgAudio.src){
+        if (running){ bgAudio.play().catch(()=>{}); }
+        else { bgAudio.pause(); }
+      } else {
+        bgAudio.pause();
+      }
+    }
+
+    // --- Wire up ---
+    document.querySelectorAll('[data-preset]')
+      .forEach(btn=>btn.addEventListener('click',()=>setPreset(btn.dataset.preset)));
+
+    startPauseBtn.addEventListener('click', ()=> running ? stop() : start());
+    resetBtn.addEventListener('click', reset);
+    plus30Btn.addEventListener('click', ()=> addMs(30_000));
+    minus10Btn.addEventListener('click', ()=> addMs(-10_000));
+    fullscreenBtn.addEventListener('click', enterFullscreen);
+
+    minEl.addEventListener('change', readInputs);
+    secEl.addEventListener('change', readInputs);
+
+    tickChk.addEventListener('change', ()=>{ resumeAudio(); if (tickChk.checked && running) shortTick(); });
+    endBeepChk.addEventListener('change', resumeAudio);
+    bgToggle.addEventListener('change', ()=>{ resumeAudio(); handleBgAudio(); });
+    bgVol.addEventListener('input', handleBgAudio);
+
+    $('#fileBtn').addEventListener('click', () => bgFile.click());
+    
+    bgFile.addEventListener('change', (e)=>{
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      bgAudio.src = url;
+      $('#fileStatus').textContent = `Valgt: ${file.name}`;
+      handleBgAudio();
+    });
+
+    document.addEventListener('keydown', (e)=>{
+      if (e.code === 'Space'){ e.preventDefault(); running ? stop() : start(); }
+      else if (e.key === 'f' || e.key === 'F'){ enterFullscreen(); }
+      else if (e.key === '+'){ addMs(30_000); }
+      else if (e.key === '-'){ addMs(-10_000); }
+    });
+
+    // Load default MP3 file on page load
+    async function loadDefaultAudio() {
+      try {
+        // Fetch the MP3 file and create a File object
+        const response = await fetch('./calm-piano-music-351839.mp3');
+        const blob = await response.blob();
+        const file = new File([blob], 'calm-piano-music-351839.mp3', { type: 'audio/mp3' });
+        
+        // Create DataTransfer to set the file input
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        bgFile.files = dt.files;
+        
+        // Set audio source and handle
+        const url = URL.createObjectURL(blob);
+        bgAudio.src = url;
+        handleBgAudio();
+      } catch (error) {
+        // If fetch fails, just set the src directly as fallback
+        bgAudio.src = './calm-piano-music-351839.mp3';
+        handleBgAudio();
+      }
+    }
+
+    // Add click event to clock display for start/pause
+    $('#display').addEventListener('click', () => {
+      running ? stop() : start();
+    });
+
+    // initial paint and setup
+    render();
+    loadDefaultAudio();
+  </script>
+</body>
+</html>
